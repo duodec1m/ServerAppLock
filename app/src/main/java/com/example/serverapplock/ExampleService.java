@@ -2,6 +2,7 @@ package com.example.serverapplock;
 
 import android.annotation.TargetApi;
 import android.app.ActivityManager;
+import android.app.IntentService;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -37,14 +38,17 @@ public class ExampleService extends Service {
         String input = intent.getStringExtra("inputExtra");
 
         Intent notificationIntent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this,
-                0, notificationIntent, 0);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+
+        Intent action1Intent = new Intent(this, NotificationActionService.class);
+        PendingIntent action1PendingIntent = PendingIntent.getService(this, 0, action1Intent, 0);
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Example Service")
                 .setContentText(input)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentIntent(pendingIntent)
+                .addAction(0, "Sync timer with server", action1PendingIntent)
                 .build();
 
         startForeground(1, notification);
@@ -107,5 +111,16 @@ public class ExampleService extends Service {
             }
         }
         return packageName;
+    }
+
+    public static class NotificationActionService extends IntentService {
+        public NotificationActionService() {
+            super(NotificationActionService.class.getSimpleName());
+        }
+
+        @Override
+        protected void onHandleIntent(Intent intent) {
+            //implement server sync here
+        }
     }
 }

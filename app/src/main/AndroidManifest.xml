@@ -54,6 +54,8 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_DISABLED" />
             </intent-filter>
         </receiver>
+
+        <service android:name=".ExampleService$NotificationActionService" />
     </application>
 
 </manifest>
