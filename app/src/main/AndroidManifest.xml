@@ -25,7 +25,8 @@
         <activity android:name=".AppList" />
         <activity
             android:name=".BlockScreen"
-            android:launchMode="singleInstance" />
+            android:launchMode="singleInstance"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
         <service
             android:name=".ExampleService"

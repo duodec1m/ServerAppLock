@@ -28,6 +28,7 @@ public class MainActivity extends AppCompatActivity {
         if(account.contains("username") && account.contains("password")){ //check if already logged in
             Intent startAppList = new Intent(MainActivity.this, AppList.class);
             startActivity(startAppList);
+            startService();
         }
 
         super.onCreate(savedInstanceState);
