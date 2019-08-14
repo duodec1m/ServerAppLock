@@ -1,7 +1,6 @@
 package com.example.serverapplock;
 
 import android.annotation.TargetApi;
-import android.app.ActivityManager;
 import android.app.IntentService;
 import android.app.Notification;
 import android.app.PendingIntent;
@@ -66,9 +65,9 @@ public class ExampleService extends Service {
 
     private void doWork() {
         final SharedPreferences prefs = getSharedPreferences("BLOCKLIST", MODE_PRIVATE);
+        Intent startBlockScreen = new Intent(this, BlockScreen.class);
         while (true) {
             if (getTaskTopAppPackageName(this) != null && prefs.contains(getTaskTopAppPackageName(this))) {
-                Intent startBlockScreen = new Intent(this, BlockScreen.class);
                 startActivity(startBlockScreen);
             }
 
