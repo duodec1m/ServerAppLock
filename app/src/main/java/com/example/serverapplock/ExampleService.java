@@ -3,6 +3,7 @@ package com.example.serverapplock;
 import android.annotation.TargetApi;
 import android.app.IntentService;
 import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.app.usage.UsageStats;
@@ -27,6 +28,8 @@ import static com.example.serverapplock.App.CHANNEL_ID;
 
 public class ExampleService extends Service {
 
+    private int time = 60000;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -42,12 +45,16 @@ public class ExampleService extends Service {
         Intent action1Intent = new Intent(this, NotificationActionService.class);
         PendingIntent action1PendingIntent = PendingIntent.getService(this, 0, action1Intent, 0);
 
+        Intent timeIntent = new Intent(this, TimeActionService.class);
+        PendingIntent timePendingIntent = PendingIntent.getService(this, 0, timeIntent, 0);
+
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Example Service")
                 .setContentText(input)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentIntent(pendingIntent)
                 .addAction(0, "Sync timer with server", action1PendingIntent)
+                .addAction(0, "Expend time", timePendingIntent)
                 .build();
 
         startForeground(1, notification);
@@ -66,13 +73,35 @@ public class ExampleService extends Service {
     private void doWork() {
         final SharedPreferences prefs = getSharedPreferences("BLOCKLIST", MODE_PRIVATE);
         Intent startBlockScreen = new Intent(this, BlockScreen.class);
+        NotificationManager nm = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
         while (true) {
+            if(time < 0){
+                time = 0;
+                TimeActionService.expend = false;
+                Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setContentTitle("Example Service")
+                        .setContentText("Time's Up")
+                        .setSmallIcon(R.drawable.ic_launcher_foreground)
+                        .build();
+                nm.notify(2,notification);
+            }
+            else if(time > 29000 && time <= 30000){
+                Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setContentTitle("Example Service")
+                        .setContentText(" About 30000 ms left")
+                        .setSmallIcon(R.drawable.ic_launcher_foreground)
+                        .build();
+                nm.notify(2,notification);
+            }
+
             if (getTaskTopAppPackageName(this) != null && prefs.contains(getTaskTopAppPackageName(this))) {
                 startActivity(startBlockScreen);
             }
 
             try {
                 Thread.sleep(1000);
+                if(TimeActionService.expend)
+                    time=time-1000;
             } catch (InterruptedException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -120,6 +149,35 @@ public class ExampleService extends Service {
         @Override
         protected void onHandleIntent(Intent intent) {
             //implement server sync here
+        }
+    }
+
+    public static class TimeActionService extends IntentService {
+        public static boolean expend = false;
+        public TimeActionService() {
+            super(NotificationActionService.class.getSimpleName());
+        }
+
+        @Override
+        protected void onHandleIntent(Intent intent) {
+            NotificationManager nm = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+            expend = !expend;
+            if(expend){
+                Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setContentTitle("Example Service")
+                        .setContentText("Timer Started")
+                        .setSmallIcon(R.drawable.ic_launcher_foreground)
+                        .build();
+                nm.notify(2,notification);
+            }
+            else{
+                Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setContentTitle("Example Service")
+                        .setContentText("Timer Stopped")
+                        .setSmallIcon(R.drawable.ic_launcher_foreground)
+                        .build();
+                nm.notify(2,notification);
+            }
         }
     }
 }

@@ -58,6 +58,7 @@
         </receiver>
 
         <service android:name=".ExampleService$NotificationActionService" />
+        <service android:name=".ExampleService$TimeActionService" />
     </application>
 
 </manifest>
