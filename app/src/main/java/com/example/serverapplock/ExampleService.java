@@ -36,6 +36,8 @@ import static com.example.serverapplock.App.CHANNEL_ID;
 
 public class ExampleService extends Service {
 
+    TimeActionService tas;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -45,13 +47,15 @@ public class ExampleService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String input = intent.getStringExtra("inputExtra");
 
+        tas = new TimeActionService();
+
         Intent notificationIntent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
 
         Intent action1Intent = new Intent(this, NotificationActionService.class);
         PendingIntent action1PendingIntent = PendingIntent.getService(this, 0, action1Intent, 0);
 
-        Intent timeIntent = new Intent(this, TimeActionService.class);
+        Intent timeIntent = new Intent(this, tas.getClass());
         PendingIntent timePendingIntent = PendingIntent.getService(this, 0, timeIntent, 0);
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -87,7 +91,8 @@ public class ExampleService extends Service {
             if(account.getLong("time", 0) < 0){
                 aEditor.putLong("time", 0);
                 aEditor.apply();
-                TimeActionService.expend = false;
+                tas.expend = false;
+                tas.updateServer();
                 Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                         .setContentTitle("Example Service")
                         .setContentText("Time's Up")
@@ -104,13 +109,13 @@ public class ExampleService extends Service {
                 nm.notify(2,notification);
             }
 
-            if (getTaskTopAppPackageName(this) != null && prefs.contains(getTaskTopAppPackageName(this))) {
+            if (getTaskTopAppPackageName(this) != null && prefs.contains(getTaskTopAppPackageName(this)) && !tas.expend) {
                 startActivity(startBlockScreen);
             }
 
             try {
                 Thread.sleep(1000);
-                if(TimeActionService.expend) {
+                if(tas.expend) {
                     aEditor.putLong("time", account.getLong("time", 0)-1000);
                     aEditor.apply();
                 }
@@ -199,15 +204,14 @@ public class ExampleService extends Service {
         }
     }
 
-    public static class TimeActionService extends IntentService {
-        public static boolean expend = false;
+    public class TimeActionService extends IntentService {
+        public boolean expend = false;
         public TimeActionService() {
             super(NotificationActionService.class.getSimpleName());
         }
 
         @Override
         protected void onHandleIntent(Intent intent) {
-            final SharedPreferences account = getSharedPreferences("ACCOUNT", MODE_PRIVATE);
             NotificationManager nm = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
             expend = !expend;
             if(expend){
@@ -225,37 +229,41 @@ public class ExampleService extends Service {
                         .setSmallIcon(R.drawable.ic_launcher_foreground)
                         .build();
                 nm.notify(2,notification);
-
-                // Response received from the server
-                Response.Listener<String> responseListener = new Response.Listener<String>() {
-                    @Override
-                    public void onResponse(String response) {
-                        try {
-                            JSONObject jsonResponse = new JSONObject(response);
-                            boolean success = jsonResponse.getBoolean("success");
-
-                            if(!success) {
-                                AlertDialog.Builder builder = new AlertDialog.Builder(TimeActionService.this);
-                                builder.setMessage("Sync with server failed")
-                                        .setNegativeButton("Retry", null)
-                                        .create()
-                                        .show();
-                            }
-
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                };
-
-                TimeRequest timeRequest = new TimeRequest(account.getString("username", null),
-                        account.getString("password", null),
-                        responseListener,
-                        account.getLong("time", 0),
-                        "write");
-                RequestQueue queue = Volley.newRequestQueue(this);
-                queue.add(timeRequest);
+                updateServer();
             }
+        }
+
+        public void updateServer(){
+            final SharedPreferences account = getSharedPreferences("ACCOUNT", MODE_PRIVATE);
+            // Response received from the server
+            Response.Listener<String> responseListener = new Response.Listener<String>() {
+                @Override
+                public void onResponse(String response) {
+                    try {
+                        JSONObject jsonResponse = new JSONObject(response);
+                        boolean success = jsonResponse.getBoolean("success");
+
+                        if(!success) {
+                            AlertDialog.Builder builder = new AlertDialog.Builder(TimeActionService.this);
+                            builder.setMessage("Sync with server failed")
+                                    .setNegativeButton("Retry", null)
+                                    .create()
+                                    .show();
+                        }
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+
+            TimeRequest timeRequest = new TimeRequest(account.getString("username", null),
+                    account.getString("password", null),
+                    responseListener,
+                    account.getLong("time", 0),
+                    "write");
+            RequestQueue queue = Volley.newRequestQueue(this);
+            queue.add(timeRequest);
         }
     }
 }
