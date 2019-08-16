@@ -53,10 +53,12 @@ public class MainActivity extends AppCompatActivity {
                             boolean success = jsonResponse.getBoolean("success");
                             String JSONUsername = jsonResponse.getString("username");
                             String JSONPassword = jsonResponse.getString("password");
+                            long JSONTime = jsonResponse.getLong("time");
 
                             if (success) {
                                 aEditor.putString("username", JSONUsername);
                                 aEditor.putString("password", JSONPassword);
+                                aEditor.putLong("time", JSONTime);
                                 aEditor.apply();
                                 Intent startAppList = new Intent(MainActivity.this, AppList.class);
                                 startActivity(startAppList);

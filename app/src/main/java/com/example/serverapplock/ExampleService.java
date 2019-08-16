@@ -16,8 +16,16 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
+import android.support.v7.app.AlertDialog;
 import android.util.Log;
 import android.widget.Toast;
+
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.toolbox.Volley;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.List;
 import java.util.SortedMap;
@@ -27,8 +35,6 @@ import static com.example.serverapplock.App.CHANNEL_ID;
 
 
 public class ExampleService extends Service {
-
-    private int time = 60000;
 
     @Override
     public void onCreate() {
@@ -54,7 +60,7 @@ public class ExampleService extends Service {
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentIntent(pendingIntent)
                 .addAction(0, "Sync timer with server", action1PendingIntent)
-                .addAction(0, "Expend time", timePendingIntent)
+                .addAction(0, "Unblock Toggle On/Off", timePendingIntent)
                 .build();
 
         startForeground(1, notification);
@@ -71,12 +77,16 @@ public class ExampleService extends Service {
     }
 
     private void doWork() {
+        final SharedPreferences account = getSharedPreferences("ACCOUNT", MODE_PRIVATE);
+        final SharedPreferences.Editor aEditor = account.edit();
+
         final SharedPreferences prefs = getSharedPreferences("BLOCKLIST", MODE_PRIVATE);
         Intent startBlockScreen = new Intent(this, BlockScreen.class);
         NotificationManager nm = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
         while (true) {
-            if(time < 0){
-                time = 0;
+            if(account.getLong("time", 0) < 0){
+                aEditor.putLong("time", 0);
+                aEditor.apply();
                 TimeActionService.expend = false;
                 Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                         .setContentTitle("Example Service")
@@ -85,7 +95,7 @@ public class ExampleService extends Service {
                         .build();
                 nm.notify(2,notification);
             }
-            else if(time > 29000 && time <= 30000){
+            else if(account.getLong("time", 0) > 29000 && account.getLong("time", 0) <= 30000){
                 Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                         .setContentTitle("Example Service")
                         .setContentText(" About 30000 ms left")
@@ -100,8 +110,10 @@ public class ExampleService extends Service {
 
             try {
                 Thread.sleep(1000);
-                if(TimeActionService.expend)
-                    time=time-1000;
+                if(TimeActionService.expend) {
+                    aEditor.putLong("time", account.getLong("time", 0)-1000);
+                    aEditor.apply();
+                }
             } catch (InterruptedException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
@@ -148,7 +160,42 @@ public class ExampleService extends Service {
 
         @Override
         protected void onHandleIntent(Intent intent) {
-            //implement server sync here
+            final SharedPreferences account = getSharedPreferences("ACCOUNT", MODE_PRIVATE);
+            final SharedPreferences.Editor aEditor = account.edit();
+            // Response received from the server
+            Response.Listener<String> responseListener = new Response.Listener<String>() {
+                @Override
+                public void onResponse(String response) {
+                    try {
+                        System.out.println(response);
+                        JSONObject jsonResponse = new JSONObject(response);
+                        boolean success = jsonResponse.getBoolean("success");
+                        long JSONTime = jsonResponse.getLong("time");
+
+                        if (success) {
+                            aEditor.putLong("time", JSONTime);
+                            aEditor.apply();
+                        } else {
+                            AlertDialog.Builder builder = new AlertDialog.Builder(NotificationActionService.this);
+                            builder.setMessage("Sync with server failed")
+                                    .setNegativeButton("Retry", null)
+                                    .create()
+                                    .show();
+                        }
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+
+            TimeRequest timeRequest = new TimeRequest(account.getString("username", null),
+                    account.getString("password", null),
+                    responseListener,
+                    account.getLong("time", 0),
+                    "read");
+            RequestQueue queue = Volley.newRequestQueue(this);
+            queue.add(timeRequest);
         }
     }
 
@@ -160,6 +207,7 @@ public class ExampleService extends Service {
 
         @Override
         protected void onHandleIntent(Intent intent) {
+            final SharedPreferences account = getSharedPreferences("ACCOUNT", MODE_PRIVATE);
             NotificationManager nm = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
             expend = !expend;
             if(expend){
@@ -177,6 +225,36 @@ public class ExampleService extends Service {
                         .setSmallIcon(R.drawable.ic_launcher_foreground)
                         .build();
                 nm.notify(2,notification);
+
+                // Response received from the server
+                Response.Listener<String> responseListener = new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        try {
+                            JSONObject jsonResponse = new JSONObject(response);
+                            boolean success = jsonResponse.getBoolean("success");
+
+                            if(!success) {
+                                AlertDialog.Builder builder = new AlertDialog.Builder(TimeActionService.this);
+                                builder.setMessage("Sync with server failed")
+                                        .setNegativeButton("Retry", null)
+                                        .create()
+                                        .show();
+                            }
+
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                };
+
+                TimeRequest timeRequest = new TimeRequest(account.getString("username", null),
+                        account.getString("password", null),
+                        responseListener,
+                        account.getLong("time", 0),
+                        "write");
+                RequestQueue queue = Volley.newRequestQueue(this);
+                queue.add(timeRequest);
             }
         }
     }

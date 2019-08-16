@@ -95,6 +95,7 @@ public class AppList extends AppCompatActivity {
             public void onClick(View v) {
                 aEditor.remove("username");
                 aEditor.remove("password");
+                aEditor.remove("time");
                 aEditor.apply();
                 Intent serviceIntent = new Intent(AppList.this, ExampleService.class);
                 stopService(serviceIntent);
